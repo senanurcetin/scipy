@@ -371,19 +371,26 @@ class _spbase(SparseABC):
     def nnz(self) -> int:
         """Number of stored values, including explicit zeros.
 
+        Identical to :attr:`size`. Implicit zeros are not counted.
+
         See Also
         --------
+        size : Number of stored values
         count_nonzero : Number of non-zero entries
         """
         return self._getnnz()
 
     @property
     def size(self) -> int:
-        """Number of stored values.
+        """Number of stored values, including explicit zeros.
+
+        Identical to :attr:`nnz`. Unlike the ``size`` attribute of a dense
+        NumPy array, this does not count implicit zero elements.
 
         See Also
         --------
-        count_nonzero : Number of non-zero values.
+        nnz : Number of stored values
+        count_nonzero : Number of non-zero values
         """
         return self._getnnz()
 
