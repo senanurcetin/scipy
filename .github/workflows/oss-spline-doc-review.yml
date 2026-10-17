@@ -24,14 +24,17 @@ jobs:
         env:
           MPLBACKEND: Agg
         run: |
+          mkdir -p /tmp/scipy-doc-qa
+          cd /tmp/scipy-doc-qa
           python - <<'PY'
           from pathlib import Path
+          import os
           import doctest
           import numpy as np
           from scipy.interpolate import make_splrep
 
-          rst = Path("doc/source/tutorial/interpolate/smoothing_splines.rst").read_text()
-          src = Path("scipy/interpolate/_fitpack_repro.py").read_text()
+          rst = (Path(os.environ["GITHUB_WORKSPACE"]) / "doc/source/tutorial/interpolate/smoothing_splines.rst").read_text()
+          src = (Path(os.environ["GITHUB_WORKSPACE"]) / "scipy/interpolate/_fitpack_repro.py").read_text()
           begin = rst.index(".. _tutorial-make-splrep-scaling:")
           stop = rst.index("Smoothing spline curves in :math:`d>1`", begin)
           prev = rst[rst.index("Finding a good value"):begin]
