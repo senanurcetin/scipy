@@ -1,0 +1,61 @@
+name: Fork make_splrep Documentation Review
+on:
+  push:
+    branches: [qa/scipy-make-splrep-doc-review]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  plot-and-rst-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install published SciPy runtime for documentation example
+        run: python -m pip install --upgrade numpy scipy matplotlib
+      - name: Validate RST review placement and execute documented plot
+        env:
+          MPLBACKEND: Agg
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import doctest
+          import numpy as np
+          from scipy.interpolate import make_splrep
+
+          rst = Path("doc/source/tutorial/interpolate/smoothing_splines.rst").read_text()
+          src = Path("scipy/interpolate/_fitpack_repro.py").read_text()
+          begin = rst.index(".. _tutorial-make-splrep-scaling:")
+          stop = rst.index("Smoothing spline curves in :math:`d>1`", begin)
+          prev = rst[rst.index("Finding a good value"):begin]
+          section = rst[begin:stop]
+          assert prev.count(".. note::") == 2, "Expected both existing notes before the new section"
+          assert rst.count(".. _tutorial-make-splrep-scaling:") == 1
+          assert "tutorial-make-splrep-scaling" in src
+          assert ".. plot::" in section
+          assert "\n\n\nSmoothing spline curves" in rst[begin:], "Need blank-line-separated next section"
+
+          plot = section.split(".. plot::", 1)[1].split("For a positive scale factor", 1)[0]
+          prompts = "\n".join(line[3:] for line in plot.splitlines()
+                              if line.startswith("   >>> ") or line.startswith("   ... ")) + "\n"
+          globs = {"__name__": "__main__"}
+          case = doctest.DocTestParser().get_doctest(prompts, globs, "make_splrep-doc-plot", None, 1)
+          assert len(case.examples) >= 15, f"Missing code examples: {len(case.examples)}"
+          result = doctest.DocTestRunner(verbose=False).run(case)
+          assert result.failed == 0, f"Documented plot doctest failed: {result.failed}"
+          x, y, xnew, s = (globs[k] for k in ("x", "y", "xnew", "s"))
+          baseline = make_splrep(x, y, s=s)(xnew)
+          for scale in (0.1, 1, 10):
+              weighted = make_splrep(x, scale * y, w=np.ones_like(x) / scale, s=s)
+              err = np.max(np.abs(weighted(xnew) / scale - baseline))
+              assert err < 1e-10, f"Incorrect weighted scaling at {scale}: {err}"
+              print(f"scale={scale}: maximum normalized error={err:.3g}")
+          print(f"PASS: RST placement, {len(case.examples)} doctest examples and spline numeric equivalence")
+          PY
