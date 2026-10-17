@@ -51,8 +51,10 @@ jobs:
           globs = {"__name__": "__main__"}
           case = doctest.DocTestParser().get_doctest(prompts, globs, "make_splrep-doc-plot", None, 1)
           assert len(case.examples) >= 15, f"Missing code examples: {len(case.examples)}"
-          result = doctest.DocTestRunner(verbose=False).run(case)
-          assert result.failed == 0, f"Documented plot doctest failed: {result.failed}"
+          # .. plot:: executes its examples as Python statements rather than
+          # comparing Matplotlib object reprs as expected doctest output.
+          for example in case.examples:
+              exec(compile(example.source, "make_splrep-doc-plot", "exec"), globs)
           x, y, xnew, s = (globs[k] for k in ("x", "y", "xnew", "s"))
           baseline = make_splrep(x, y, s=s)(xnew)
           for scale in (0.1, 1, 10):
